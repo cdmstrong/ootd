@@ -12,14 +12,17 @@ pipe = Flux2KleinPipeline.from_pretrained(
 pipe.to(device)
 
 person_img = Image.open("./test/hero2.jpg").convert("RGB")
-object_img = Image.open("./test/cat_window.png").convert("RGB")
-bird_img = Image.open("./test/bird.png").convert("RGB")
+object_img = Image.open("./test/02015_00.jpg").convert("RGB")
 
-prompt = "The person from image 1 is petting the cat from image 2, the bird from image 3 is next to them"
+prompt = (
+    "A female model from the first image is wearing the dress from the second image, "
+    "properly aligned, natural pose, correct body proportions, realistic fabric folds, "
+    "photorealistic style, soft lighting"
+)
 
 image = pipe(
     prompt=prompt,
-    image=[person_img, object_img, bird_img],  # ✅ 关键点
+    image=[person_img, object_img],  # ✅ 关键点
     height=1024,
     width=1024,
     guidance_scale=1.0,
