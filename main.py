@@ -4,23 +4,38 @@ import uuid
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 
+from app.client import InferenceClient
+from app.image_processor import process_images_for_inference
 from app.models import CreateOutfitTaskRequest, TaskStatusResponse
 from app.prompts import build_prompt
-from app.generator import generate_outfit_image
 from app.store import InMemoryTaskStore, TaskManager
 
 
-app = FastAPI(title="OOTD Outfit Generator", version="0.1.0")
+app = FastAPI(title="OOTD Outfit Generator API", version="0.1.0")
 
 store = InMemoryTaskStore()
 manager = TaskManager(store)
+inference_client = InferenceClient()
 
 
 async def _process_task(task_id: str, req: CreateOutfitTaskRequest) -> None:
+    """Process a task: remove background if needed, build prompt, call inference service, save result."""
     try:
         await manager.set_running(task_id)
+
+        # Process images: remove background if needed (via HTTP call to inference service)
+        image_paths = await process_images_for_inference(req, task_id, inference_client)
+
+        # Build prompt (business logic)
         prompt = build_prompt(req)
-        out_path = generate_outfit_image(task_id=task_id, prompt=prompt, req=req)
+
+        # Call inference service (pure inference, no business logic)
+        out_path = await inference_client.infer(
+            prompt=prompt,
+            image_paths=image_paths,
+            task_id=task_id,
+        )
+
         await manager.set_succeeded(
             task_id,
             result={
@@ -40,7 +55,7 @@ async def create_outfit_task(
     # Pydantic validators already ensured image count constraints
     try:
         # Force validation manually to surface root_validator errors early
-        request = CreateOutfitTaskRequest(**request.dict())
+        request = CreateOutfitTaskRequest(**request.dict()) 
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -57,7 +72,7 @@ async def get_outfit_task(task_id: str) -> TaskStatusResponse:
         raise HTTPException(status_code=404, detail="Task not found")
     return TaskStatusResponse(
         task_id=task.task_id,
-        status=task.status,
+        status=task.status, 
         result=task.result,
         error_message=task.error_message,
     )

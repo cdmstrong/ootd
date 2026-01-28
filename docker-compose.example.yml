@@ -1,0 +1,28 @@
+# Example docker-compose.yml for OOTD services
+# This sets up two services: API and unified Inference Service (includes inference and background removal)
+
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - INFERENCE_SERVICE_URL=http://inference:8001
+    depends_on:
+      - inference
+    volumes:
+      - ./outputs:/app/outputs
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+
+  inference:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      - INFERENCE_PORT=8001
+    volumes:
+      - ./outputs:/app/outputs
+    command: python -m uvicorn inference_service.main:app --host 0.0.0.0 --port 8001
+

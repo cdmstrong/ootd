@@ -18,85 +18,78 @@ def _collect_parts(req: CreateOutfitTaskRequest) -> List[str]:
     return parts
 
 
-BASE_TEMPLATES: Dict[str, str] = {
-    "TOP": (
-        "Use the provided top image as the main clothing item. "
-        "Create a complete outfit that matches this top, including pants, shoes and a bag. "
-        "The top is {top_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "PANTS": (
-        "Use the provided pants image as the main clothing item. "
-        "Create a complete outfit that matches these pants, including top, shoes and a bag. "
-        "The pants are {pants_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "SHOES": (
-        "Use the provided shoes image as the main item. "
-        "Create a complete outfit that matches these shoes, including top, pants and a bag. "
-        "The shoes are {shoes_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "BAG": (
-        "Use the provided bag image as the main item. "
-        "Create a complete outfit that matches this bag, including top, pants and shoes. "
-        "The bag is {bag_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "TOP+PANTS": (
-        "Use the provided top and pants images as fixed clothing items. "
-        "Generate matching shoes and a bag that complete the outfit. "
-        "The top is {top_desc}. The pants are {pants_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "TOP+SHOES": (
-        "Use the provided top and shoes images as fixed clothing items. "
-        "Generate matching pants and a bag that complete the outfit. "
-        "The top is {top_desc}. The shoes are {shoes_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "TOP+BAG": (
-        "Use the provided top and bag images as fixed clothing items. "
-        "Generate matching pants and shoes that complete the outfit. "
-        "The top is {top_desc}. The bag is {bag_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "PANTS+SHOES": (
-        "Use the provided pants and shoes images as fixed clothing items. "
-        "Generate a matching top and bag that complete the outfit. "
-        "The pants are {pants_desc}. The shoes are {shoes_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "PANTS+BAG": (
-        "Use the provided pants and bag images as fixed clothing items. "
-        "Generate a matching top and shoes that complete the outfit. "
-        "The pants are {pants_desc}. The bag is {bag_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-    "SHOES+BAG": (
-        "Use the provided shoes and bag images as fixed items. "
-        "Generate a matching top and pants that complete the outfit. "
-        "The shoes are {shoes_desc}. The bag is {bag_desc}. Style: {style_desc}. "
-        "Generate a realistic full-body fashion photo, studio lighting, plain background."
-    ),
-}
+def _get_missing_parts(provided_parts: List[str]) -> List[str]:
+    """Get the list of clothing parts that are NOT provided."""
+    all_parts = ["TOP", "PANTS", "SHOES", "BAG"]
+    return [p for p in all_parts if p not in provided_parts]
+
+
+def _format_part_list(parts: List[str]) -> str:
+    """Format a list of parts into a readable string."""
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0].lower()
+    if len(parts) == 2:
+        return f"{parts[0].lower()} and {parts[1].lower()}"
+    # 3 parts
+    return f"{parts[0].lower()}, {parts[1].lower()} and {parts[2].lower()}"
+
+
+def _build_replacement_prompt(parts: List[str]) -> str:
+    """Build the main replacement prompt based on provided parts."""
+    if not parts:
+        # No accessories provided, just return the original image description
+        return (
+            "Use the person from the first image as-is. "
+            "Keep all clothing items exactly as they appear in the original image. "
+            "Style: {style_desc}. Properly aligned, natural pose, correct body proportions, "
+            "realistic fabric folds, photorealistic style, soft lighting, plain background."
+        )
+
+    part_descriptions = []
+    if "TOP" in parts:
+        part_descriptions.append("wearing the {top_desc}")
+    if "PANTS" in parts:
+        part_descriptions.append("wearing the {pants_desc}")
+    if "SHOES" in parts:
+        part_descriptions.append("wearing the {shoes_desc}")
+    if "BAG" in parts:
+        part_descriptions.append("carrying the {bag_desc}")
+
+    if len(part_descriptions) == 1:
+        replacement_text = f"A person from the first image is {part_descriptions[0]} from the provided accessory image(s)."
+    else:
+        replacement_text = f"A person from the first image is {', '.join(part_descriptions[:-1])} and {part_descriptions[-1]} from the provided accessory images."
+
+    return replacement_text
 
 
 def build_prompt(req: CreateOutfitTaskRequest) -> str:
     """
     Build an English prompt based on which clothing parts are provided.
+    The first image is always the person/base image, followed by accessory images.
+    
+    If keep_original=True, explicitly instruct to keep non-provided parts unchanged.
+    If keep_original=False, only replace the provided accessories without constraints.
     """
     parts = sorted(_collect_parts(req))
-    combo_key = "+".join(parts)
+    missing_parts = _get_missing_parts(parts)
 
-    template = BASE_TEMPLATES.get(
-        combo_key,
-        (
-            "Create a complete outfit based on the provided reference clothing images. "
-            "Style: {style_desc}. Generate a realistic full-body fashion photo, "
-            "studio lighting, plain background."
-        ),
-    )
+    # Build the main replacement description
+    replacement_text = _build_replacement_prompt(parts)
+
+    # Build the constraint text based on keep_original flag
+    if not parts:
+        # No accessories provided
+        constraint_text = ""
+    elif req.keep_original and missing_parts:
+        # Keep original parts unchanged
+        missing_text = _format_part_list(missing_parts)
+        constraint_text = f" Keep all other clothing items ({missing_text}) exactly as they appear in the first image."
+    else:
+        # No constraint on other parts
+        constraint_text = ""
 
     style_desc = ", ".join(req.style_tags) if req.style_tags else "modern, fashionable"
 
@@ -106,13 +99,22 @@ def build_prompt(req: CreateOutfitTaskRequest) -> str:
     shoes_desc = req.shoes_desc or "stylish shoes"
     bag_desc = req.bag_desc or "a stylish bag"
 
-    prompt = template.format(
+    # Combine all parts
+    prompt = (
+        f"{replacement_text}{constraint_text} "
+        f"Style: {style_desc}. Properly aligned, natural pose, correct body proportions, "
+        f"realistic fabric folds, photorealistic style, soft lighting, plain background."
+    )
+
+    # Format with descriptions
+    prompt = prompt.format(
         top_desc=top_desc,
         pants_desc=pants_desc,
         shoes_desc=shoes_desc,
         bag_desc=bag_desc,
         style_desc=style_desc,
     )
+
     return prompt
 
 

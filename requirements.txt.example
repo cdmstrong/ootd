@@ -1,0 +1,23 @@
+# Core ML dependencies
+git+https://github.com/huggingface/diffusers.git
+transformers>=4.30.0
+accelerate>=0.20.0
+safetensors>=0.3.0
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# FastAPI and web dependencies
+fastapi>=0.100.0
+pydantic<3.0.0
+uvicorn[standard]>=0.23.0
+httpx>=0.24.0
+requests>=2.31.0
+
+# Image processing
+pillow>=10.0.0
+rembg>=2.0.0
+
+# Optional: Redis support (if using Redis for task storage)
+# redis>=4.5.0
+
