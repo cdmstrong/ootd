@@ -7,6 +7,7 @@ from io import BytesIO
 from typing import List
 from urllib.parse import urlparse
 
+import base64
 import requests
 import torch
 import sys
@@ -100,15 +101,13 @@ def run_inference(
         num_inference_steps=num_inference_steps,
     ).images[0]
 
-    # Save result
-    if output_path is None:
-        os.makedirs("outputs", exist_ok=True)
-        import uuid
+    # Encode result as base64 (PNG)
+    buffer = BytesIO()
+    result.save(buffer, format="PNG")
+    buffer.seek(0)
 
-        output_path = os.path.join("outputs", f"{uuid.uuid4().hex}.png")
-    else:
-        os.makedirs(os.path.dirname(output_path) if os.path.dirname(output_path) else ".", exist_ok=True)
+    image_bytes = buffer.getvalue()
+    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
-    result.save(output_path)
-    return output_path
+    return image_base64
 

@@ -22,10 +22,10 @@ RUN python -m pip install --upgrade pip
 
 # Copy requirements first (for better caching)
 # COPY wheels /app/wheels
-RUN python -m pip install torch torchvision torchaudio   --index-url https://download.pytorch.org/whl/cu121
+RUN python -m pip install torch torchvision torchaudio   --index-url https://download.pytorch.org/whl/cu121 -i https://pypi.tuna.tsinghua.edu.cn/simple
 # RUN pip install /app/wheels/*.whl
 # RUN rm -rf /app/wheels
-COPY ./.u2net /app/.u2net
+COPY ./.u2net /root/.u2net
 COPY requirements.txt .
 COPY diffusers /app/diffusers
 
@@ -35,7 +35,7 @@ RUN pip install /app/diffusers
 # Install Python dependencies
 
 # Pre-download rembg model (this will download to ~/.u2net/)
-RUN python -c "from rembg import new_session; new_session()" || echo "Warning: rembg model download failed"
+RUN python -c "from rembg import new_session; new_session('./app/.u2net')" || echo "Warning: rembg model download failed"
 
 # Copy application code
 

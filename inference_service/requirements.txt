@@ -10,3 +10,4 @@ Pillow
 numpy
 opencv-python
 onnxruntime
+runpod

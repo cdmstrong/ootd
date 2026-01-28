@@ -22,18 +22,17 @@ async def infer(request: InferenceRequest) -> InferenceResponse:
     This is a pure inference service - no business logic, just model inference.
     """
     try:
-        output_path = run_inference(
+        image_base64 = run_inference(
             prompt=request.prompt,
             image_paths=request.image_paths,
             height=request.height,
             width=request.width,
             guidance_scale=request.guidance_scale,
             num_inference_steps=request.num_inference_steps,
-            output_path=request.output_path,
         )
-        return InferenceResponse(success=True, image_path=output_path, error_message=None)
+        return InferenceResponse(success=True, image_base64=image_base64, error_message=None)
     except Exception as exc:  # noqa: BLE001
-        return InferenceResponse(success=False, image_path=None, error_message=str(exc))
+        return InferenceResponse(success=False, image_base64=None, error_message=str(exc))
 
 
 @app.post("/remove_background", response_model=BackgroundRemovalResponse)

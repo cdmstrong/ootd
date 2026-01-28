@@ -21,15 +21,12 @@ class InferenceRequest(BaseModel):
     width: int = Field(default=1024, description="Output image width")
     guidance_scale: float = Field(default=1.0, description="Guidance scale for generation")
     num_inference_steps: int = Field(default=10, description="Number of inference steps")
-    output_path: Optional[str] = Field(
-        default=None, description="Optional output path. If not provided, a temporary path will be generated."
-    )
 
 
 class InferenceResponse(BaseModel):
     """Response model for inference service."""
 
     success: bool = Field(..., description="Whether inference succeeded")
-    image_path: Optional[str] = Field(default=None, description="Path to generated image")
+    image_base64: Optional[str] = Field(default=None, description="Base64-encoded generated image (PNG)")
     error_message: Optional[str] = Field(default=None, description="Error message if inference failed")
 

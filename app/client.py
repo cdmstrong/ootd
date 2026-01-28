@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
 import os
+from io import BytesIO
 from typing import List
 
 import httpx
+from PIL import Image
 
 from .models import CreateOutfitTaskRequest
 
@@ -50,7 +53,7 @@ class InferenceClient:
         Raises:
             httpx.HTTPError: If the inference service call fails.
         """
-        # Prepare output path
+        # Prepare local output path (API layer handles saving)
         os.makedirs("outputs", exist_ok=True)
         output_path = os.path.join("outputs", f"{task_id}.png")
 
@@ -62,7 +65,6 @@ class InferenceClient:
             "width": width,
             "guidance_scale": guidance_scale,
             "num_inference_steps": num_inference_steps,
-            "output_path": output_path,
         }
 
         # Call inference service
@@ -75,7 +77,17 @@ class InferenceClient:
                 error_msg = result.get("error_message", "Unknown error")
                 raise RuntimeError(f"Inference service error: {error_msg}")
 
-            return result.get("image_path", output_path)
+            image_base64 = result.get("image_base64")
+            if not image_base64:
+                raise RuntimeError("Inference service did not return image_base64")
+
+            # Decode base64 and save image locally
+            image_bytes = base64.b64decode(image_base64)
+            buffer = BytesIO(image_bytes)
+            image = Image.open(buffer).convert("RGB")
+            image.save(output_path, format="PNG")
+
+            return output_path
 
     async def remove_background(
         self,
